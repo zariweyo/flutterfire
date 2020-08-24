@@ -16,6 +16,7 @@ import com.google.android.gms.tasks.Task;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.storage.FileDownloadTask;
 import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.ListResult;
 import com.google.firebase.storage.OnPausedListener;
 import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageException;
@@ -142,6 +143,9 @@ public class FirebaseStoragePlugin implements MethodCallHandler, FlutterPlugin {
         break;
       case "UploadTask#cancel":
         cancelUploadTask(call, result);
+        break;
+      case "StorageReference#listAll":
+        listAll(call, result);
         break;
       default:
         result.notImplemented();
@@ -310,6 +314,51 @@ public class FirebaseStoragePlugin implements MethodCallHandler, FlutterPlugin {
     }
     final int handle = addUploadListeners(uploadTask);
     result.success(handle);
+  }
+
+  private void listAll(MethodCall call, final Result result) {
+    String path = call.argument("path");
+    StorageReference ref = firebaseStorage.getReference().child(path);
+    final Task<ListResult> listTask = ref.listAll();
+    listTask.addOnSuccessListener(
+        new OnSuccessListener<ListResult>() {
+          @Override
+          public void onSuccess(ListResult listResult) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("pageToken", listResult.getPageToken());
+            Map<String, Object> mapItems = new HashMap<>();
+            for (int i = 0; i < listResult.getItems().size(); i++) {
+              mapItems.put(
+                  listResult.getItems().get(i).getName(),
+                  buildMapStorageReference(listResult.getItems().get(i)));
+            }
+            map.put("items", mapItems);
+            Map<String, Object> mapPrefixes = new HashMap<>();
+            for (int i = 0; i < listResult.getPrefixes().size(); i++) {
+              mapPrefixes.put(
+                  listResult.getPrefixes().get(i).getName(),
+                  buildMapStorageReference(listResult.getPrefixes().get(i)));
+            }
+            map.put("prefixes", mapPrefixes);
+            result.success(map);
+          }
+        });
+    listTask.addOnFailureListener(
+        new OnFailureListener() {
+          @Override
+          public void onFailure(@NonNull Exception e) {
+            result.error("listing_error", e.getMessage(), null);
+          }
+        });
+  }
+
+  private Map<String, Object> buildMapStorageReference(StorageReference storageReference) {
+    Map<String, Object> map = new HashMap<>();
+    map.put("name", storageReference.getName());
+    map.put("bucket", storageReference.getBucket());
+    map.put("path", storageReference.getPath());
+    map.put("creationTimeMillis", storageReference.get)
+    return map;
   }
 
   private StorageMetadata buildMetadataFromMap(Map<String, Object> map) {

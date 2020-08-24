@@ -92,6 +92,8 @@ static FlutterError *getFlutterError(NSError *error) {
     [self resumeUploadTask:call result:result];
   } else if ([@"UploadTask#cancel" isEqualToString:call.method]) {
     [self cancelUploadTask:call result:result];
+  } else if ([@"StorageReference#listAll" isEqualToString:call.method]) {
+    [self listAll:call result:result];
   } else {
     result(FlutterMethodNotImplemented);
   }
@@ -457,6 +459,39 @@ typedef NS_ENUM(NSUInteger, StorageTaskEventType) {
   } else {
     result([FlutterError errorWithCode:@"cancel_error" message:@"task == null" details:nil]);
   }
+}
+
+- (void)listAll:(FlutterMethodCall *)call result:(FlutterResult)result {
+  NSString *path = call.arguments[@"path"];
+  FIRStorageReference *ref = [storage.reference child:path];
+  [ref listAllWithCompletion:^(FIRStorageListResult *resultList, NSError *error) {
+    if (error != nil) {
+      result(getFlutterError(error));
+    } else {
+      NSMutableDictionary *dictionary = [[NSMutableDictionary alloc] init];
+      [dictionary setValue:[resultList pageToken] forKey:@"pageToken"];
+      NSMutableDictionary *dictionaryItems = [[NSMutableDictionary alloc] init];
+      for (FIRStorageReference *item in resultList.items) {
+        [dictionaryItems setValue:[self buildDictionaryStorageReference:item] forKey:[item name]];
+      }
+      [dictionary setValue:dictionaryItems forKey:@"items"];
+      NSMutableDictionary *dictionaryPrefixes = [[NSMutableDictionary alloc] init];
+      for (FIRStorageReference *prefix in resultList.prefixes) {
+        [dictionaryPrefixes setValue:[self buildDictionaryStorageReference:prefix]
+                              forKey:[prefix name]];
+      }
+      [dictionary setValue:dictionaryPrefixes forKey:@"prefixes"];
+      result(dictionary);
+    }
+  }];
+}
+
+- (NSDictionary *)buildDictionaryStorageReference:(FIRStorageReference *)storageReference {
+  NSMutableDictionary *dictionary = [[NSMutableDictionary alloc] init];
+  [dictionary setValue:[storageReference name] forKey:@"name"];
+  [dictionary setValue:[storageReference bucket] forKey:@"bucket"];
+  [dictionary setValue:[storageReference fullPath] forKey:@"path"];
+  return dictionary;
 }
 
 @end

@@ -185,5 +185,17 @@ class StorageReference {
     }));
   }
 
+  /// Asynchronously retrieves the full list of all the items and prefixes
+  /// from a specific path. This is according to "listAll" in Android and
+  /// iOS Swift documentation.
+  Future<dynamic> listAll() async {
+    return await FirebaseStorage.channel
+    .invokeMethod<dynamic>("StorageReference#listAll", <String, String>{
+      'app': _firebaseStorage.app?.name,
+      'bucket': _firebaseStorage.storageBucket,
+      'path': _pathComponents.join("/"),
+    });
+  }
+
   String get path => _pathComponents.join('/');
 }
